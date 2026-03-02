@@ -1,5 +1,7 @@
 # Claude Code Gateway
 
+> **Disclaimer:** This project does **not** extract or use OAuth tokens. It runs the official Claude Code CLI binary inside a Docker container as a subprocess. This may still fall outside Anthropic's intended usage of Claude Code subscriptions. Review [Anthropic's Consumer Terms of Service](https://www.anthropic.com/legal/consumer-terms) before using. **Use at your own risk** -- the authors are not responsible for any account restrictions or actions taken by Anthropic.
+
 > Turn your Claude Code subscription into an API endpoint for any AI agent -- no separate Anthropic API key needed. Works with OpenClaw, ZeroClaw, Cline, Aider, Open WebUI, LangChain, and 30+ tools.
 
 ## What Is Claude Code Gateway?
