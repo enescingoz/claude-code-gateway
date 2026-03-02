@@ -1,0 +1,85 @@
+# Claude Code Gateway
+
+> An open-source Python server that exposes the Claude Code CLI as an OpenAI-compatible REST API. Use your Claude Code subscription as an API endpoint for any AI tool.
+
+## What It Does
+
+- Wraps the Claude Code CLI as a `/v1/chat/completions` endpoint
+- Compatible with 30+ AI tools that speak the OpenAI API format
+- Requires only a Claude Code subscription (Max or Pro) — no separate Anthropic API key
+- Supports streaming (SSE) and non-streaming responses
+- Handles session continuity for multi-turn conversations
+- Automatic model mapping (GPT model names → Claude equivalents)
+
+## Key Files
+
+- [README.md](README.md): Setup, configuration, compatible tools
+- [src/main.py](src/main.py): FastAPI app entry point, CORS middleware, router registration
+- [src/config.py](src/config.py): Configuration via `CCG_` environment variables (Pydantic Settings)
+- [src/routes/chat_completions.py](src/routes/chat_completions.py): Main chat completions endpoint (streaming + blocking)
+- [src/routes/models.py](src/routes/models.py): Model listing endpoint
+- [src/routes/health.py](src/routes/health.py): Health check endpoint
+- [src/services/claude_runner.py](src/services/claude_runner.py): Subprocess wrapper that invokes the Claude Code CLI
+- [src/services/stream_adapter.py](src/services/stream_adapter.py): Converts Claude NDJSON output to OpenAI SSE format
+- [src/utils/model_mapper.py](src/utils/model_mapper.py): Maps GPT model names and short aliases to Claude model IDs
+- [src/utils/message_formatter.py](src/utils/message_formatter.py): Converts OpenAI message arrays to a single Claude prompt string
+- [src/models/openai_types.py](src/models/openai_types.py): Pydantic models for OpenAI request/response schemas
+- [docker-compose.yml](docker-compose.yml): Docker deployment, mounts `~/.claude` credentials into the container
+- [.env.example](.env.example): Template for all supported environment variables
+
+## Compatible Tools
+
+### Coding Agents
+Cline, Aider, OpenHands, bolt.diy, Goose, Roo Code, SWE-agent, OpenAI Codex CLI
+
+### Chat Interfaces
+Open WebUI, LibreChat, Lobe Chat, AnythingLLM, Jan, ChatBot UI
+
+### Agent Frameworks
+LangChain, CrewAI, AutoGen, LlamaIndex, Pydantic AI, OpenAI Agents SDK, Smolagents
+
+### IDE Extensions
+Continue.dev, Tabby, Void, Zed
+
+### Visual Builders
+n8n, Dify, Flowise, Langflow
+
+## Supported Models
+
+- `claude-sonnet-4-20250514` — Claude Sonnet 4 (default)
+- `claude-opus-4-20250514` — Claude Opus 4
+- `claude-haiku-4-5-20251001` — Claude Haiku 4.5
+
+GPT aliases are automatically remapped: `gpt-4` / `gpt-4o` / `gpt-4-turbo` → Sonnet; `gpt-3.5-turbo` / `gpt-4o-mini` → Haiku. Short aliases `sonnet`, `opus`, and `haiku` are also accepted. Native `claude-*` model IDs pass through unchanged.
+
+## API Endpoints
+
+- `POST /v1/chat/completions` — Chat completions (streaming SSE + blocking JSON)
+- `GET /v1/models` — List available Claude models in OpenAI format
+- `GET /health` — Health check
+
+## Configuration
+
+All settings use the `CCG_` prefix and can be set in `.env` or as environment variables.
+
+| Variable | Default | Description |
+|---|---|---|
+| `CCG_HOST` | `0.0.0.0` | Server bind address |
+| `CCG_PORT` | `8080` | Server port |
+| `CCG_DEFAULT_MODEL` | `claude-sonnet-4-20250514` | Default Claude model |
+| `CCG_DEFAULT_MAX_TURNS` | `10` | Max conversation turns per request |
+| `CCG_CLAUDE_CLI_TIMEOUT` | `300` | CLI subprocess timeout in seconds |
+| `CCG_WORKING_DIR` | `` | Working directory for CLI (empty = temp dir) |
+
+## Quick Start
+
+1. Clone the repository
+2. Copy `.env.example` to `.env`
+3. Run with Docker: `docker compose up --build`
+4. Point your AI tool's OpenAI base URL to `http://localhost:8080/v1`
+
+Local (without Docker): install dependencies with `pip install -r requirements.txt`, then run `uvicorn src.main:app --host 0.0.0.0 --port 8080`.
+
+## Architecture Notes
+
+The gateway spawns the `claude` CLI as a subprocess for each request. The Docker image mounts `~/.claude` and `~/.claude.json` from the host so the container reuses the authenticated session from the host machine. Streaming responses are converted from Claude's NDJSON format to the OpenAI SSE (`data: {...}` lines) format by `stream_adapter.py`. Session continuity across turns is maintained by passing a `session_id` back to the client and accepting it on subsequent requests.

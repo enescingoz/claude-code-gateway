@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/.claude:/root/.claude
+      - ~/.claude.json:/root/.claude.json:ro
+    environment:
+      - CCG_HOST=0.0.0.0
+      - CCG_PORT=8080
+    restart: unless-stopped
