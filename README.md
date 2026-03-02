@@ -4,11 +4,11 @@
 
 ## What Is Claude Code Gateway?
 
-Claude Code Gateway is a free, open-source Python server that wraps your local Claude Code CLI as an OpenAI-compatible API. It exposes a standard `/v1/chat/completions` endpoint so any tool that speaks the OpenAI format -- Cline, Aider, LangChain, Open WebUI, and dozens more -- can use Claude models directly through your existing Claude Code subscription. There is no per-token billing and no separate Anthropic API key to purchase.
+Claude Code Gateway is a free, open-source Python server that wraps your local Claude Code CLI as an OpenAI-compatible API. It exposes a standard `/v1/chat/completions` endpoint so any tool that speaks the OpenAI format -- OpenClaw, ZeroClaw, MoltBot, Cline, Aider, LangChain, Open WebUI, and dozens more -- can use Claude models directly through your existing Claude Code subscription. There is no per-token billing and no separate Anthropic API key to purchase.
 
 ## Why Use Claude Code Gateway?
 
-AI coding tools like Cline, Aider, Continue.dev, and Open WebUI require an OpenAI-compatible API endpoint to function. The standard Anthropic API charges per token on top of your subscription, which adds up fast during heavy development sessions.
+AI tools like OpenClaw, MoltBot, Cline, Aider, Continue.dev, and Open WebUI require an OpenAI-compatible API endpoint to function. The standard Anthropic API charges per token on top of your subscription, which adds up fast during heavy development sessions.
 
 Claude Code Gateway solves this by routing all requests through the Claude Code CLI included with your Claude Max or Pro subscription. You get the same Claude Sonnet, Opus, and Haiku models powering your favorite tools at no additional API cost. The gateway is a lightweight FastAPI server that translates OpenAI-format requests into Claude Code CLI calls and streams the responses back.
 
@@ -38,6 +38,14 @@ Point your tool's OpenAI base URL to `http://localhost:8080/v1` and you're done.
 ## Compatible Tools
 
 Claude Code Gateway works with any tool that supports an OpenAI-compatible API endpoint. The gateway accepts both native Claude model names (`claude-sonnet-4-20250514`) and GPT model names (`gpt-4o`), automatically mapping them to the correct Claude model.
+
+### AI Assistants
+
+| Tool | Description |
+|------|-------------|
+| [OpenClaw](https://github.com/openclaw/openclaw) | Personal AI assistant for any OS and platform |
+| [MoltBot](https://github.com/moltbot/moltbot) | Multi-channel personal AI assistant |
+| [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) | Lightweight autonomous AI agent runtime in Rust |
 
 ### Coding Agents
 
