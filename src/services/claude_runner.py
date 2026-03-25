@@ -83,7 +83,23 @@ class ClaudeRunner:
             raise TimeoutError(f"Claude CLI timed out after {timeout}s")
 
         if proc.returncode != 0:
-            error = stderr.decode().strip() or f"CLI exited with code {proc.returncode}"
+            error = stderr.decode().strip()
+            if not error:
+                # Claude CLI writes errors to stdout in JSON format
+                raw = stdout.decode().strip()
+                try:
+                    data = json.loads(raw)
+                    if isinstance(data, list):
+                        for item in data:
+                            if isinstance(item, dict) and item.get("type") == "result":
+                                error = item.get("result", "")[:500]
+                                break
+                    elif isinstance(data, dict):
+                        error = data.get("result", data.get("error", ""))[:500]
+                except (json.JSONDecodeError, KeyError):
+                    error = raw[:500] if raw else ""
+            if not error:
+                error = f"CLI exited with code {proc.returncode}"
             raise RuntimeError(error)
 
         raw = stdout.decode().strip()
@@ -102,6 +118,90 @@ class ClaudeRunner:
             return data[-1] if data else {"type": "result", "result": raw, "session_id": None}
 
         return data
+
+    @staticmethod
+    async def run_blocking_with_tools(
+        prompt: str,
+        model: str,
+        timeout: int = 300,
+        max_turns: int | None = None,
+        working_dir: str | None = None,
+        session_id: str | None = None,
+        permission_mode: str | None = None,
+        append_system_prompt: str | None = None,
+        allowed_tools: str | None = None,
+    ) -> dict:
+        """Run claude CLI with stream-json format to capture full text output.
+
+        Used for tool-calling requests where --output-format json returns an
+        empty ``result`` field.  The assistant's text is extracted from NDJSON
+        ``assistant`` message events instead.
+        """
+        cmd = ClaudeRunner._build_cmd(
+            model=model,
+            output_format="stream-json",  # NOT json — captures actual text
+            max_turns=max_turns or 1,  # Prevent Claude from executing its own tools
+            session_id=session_id,
+            permission_mode=permission_mode,
+            append_system_prompt=append_system_prompt,
+            allowed_tools=allowed_tools,
+        )
+        cwd = working_dir or tempfile.mkdtemp(prefix="claude-api-")
+        env = ClaudeRunner._build_env()
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+            env=env,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(input=prompt.encode()), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise TimeoutError(f"Claude CLI timed out after {timeout}s")
+
+        if proc.returncode != 0:
+            error = stderr.decode().strip()
+            if not error:
+                error = f"CLI exited with code {proc.returncode}"
+            raise RuntimeError(error)
+
+        # Parse NDJSON lines to extract assistant text content
+        text_parts: list[str] = []
+        result_session_id: str | None = None
+
+        for line in stdout.decode().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            # Extract text from assistant messages
+            if data.get("type") == "assistant":
+                message = data.get("message", {})
+                content = message.get("content", [])
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        text_parts.append(block.get("text", ""))
+
+            # Extract session_id from result event
+            if data.get("type") == "result":
+                result_session_id = data.get("session_id")
+
+        combined_text = "\n".join(text_parts) if text_parts else ""
+        return {
+            "type": "result",
+            "result": combined_text,
+            "session_id": result_session_id,
+        }
 
     @staticmethod
     async def run_streaming(
